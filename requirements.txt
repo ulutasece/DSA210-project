@@ -1,0 +1,7 @@
+pytrends
+praw
+pandas
+numpy
+matplotlib
+seaborn
+scipy
