@@ -22,6 +22,3 @@ Planned ML Technique: I will implement a Random Forest Regressor to model the no
 Access the Notebook: Open DSA210_Analysis.ipynb in this repository.
 Environment Setup: Launch the environment by clicking the button below.
 Install Dependencies: Execute the following command in the first cell of the notebook to install the required libraries.
-
-
-pip install pytrends praw pandas matplotlib seaborn
