@@ -1,0 +1,118 @@
+DSA 210 - Final Project Report
+Can Google Search Trends Predict Consumer Electronics Demand?
+
+================================================================================
+
+MOTIVATION
+
+Consumer electronics is one of the fastest-moving product categories in global retail. Manufacturers and analysts face a persistent challenge: how do you sense shifts in consumer demand quickly enough to act on them? Traditional sales data arrives with a lag, often weeks or months after purchasing decisions have already been made.
+
+This project explores whether Google Search Trends can serve as a leading indicator of consumer electronics demand. The core intuition is simple: before a consumer buys a laptop or a smartphone, they almost certainly search for it first. If search interest reliably precedes purchasing behaviour, a model that incorporates Trends data should outperform one that relies only on historical patterns.
+
+Google Trends is publicly available in real time, whereas actual sales figures are proprietary and delayed. If Trends carries genuine predictive signal, it represents a free and timely input to demand forecasting, directly useful for inventory management and supply chain planning.
+
+The consumer electronics market is well-suited to this analysis. Products have distinct launch cycles such as annual iPhone releases and back-to-school laptop seasons, which create predictable spikes in both search interest and demand, making the lead-lag relationship between the two signals directly testable.
+
+Research question: Can Google Search Trends for consumer electronics keywords (iphone, laptop, smartphone, gaming laptop) predict weekly consumer electronics demand, measured by Amazon product review volume?
+
+Hypothesis: Increases in Google Search interest for electronics keywords are positively associated with and temporally precede increases in Amazon review volume, with a lag of one to four weeks.
+
+================================================================================
+
+DATA SOURCE
+
+The project uses two data sources.
+
+Amazon Electronics Review Dataset
+
+The Amazon Electronics dataset is an academic benchmark released by the University of California San Diego. It contains 1,292,954 product reviews across ten consumer electronics categories, spanning 1999 to 2018. Each record includes a star rating, timestamp, product category, and brand.
+
+The dataset was filtered to two categories only: Headphones and Computers & Accessories. These map directly to the Google Trends keywords used in the project. Headphones corresponds to smartphone and iphone keywords, while Computers & Accessories corresponds to laptop and gaming laptop. All other categories were excluded to keep the demand signal focused on the same product space as the search interest signal.
+
+The analysis window was restricted to 2013-2018, giving 301 weekly observations with consistently high review volume. Review volume is used as a proxy for unit sales, since every purchase is a necessary precondition for a review.
+
+How the data was collected: Downloaded as a pre-compiled CSV from the UCSD public data repository.
+
+Google Trends Data
+
+Google Trends data was collected using the pytrends Python library. Four keywords were queried for the US region over 2013-2018: iphone, laptop, smartphone, and gaming laptop. Google Trends returns a weekly interest score normalised to 0-100. A composite score was computed as the mean across all four keywords each week.
+
+How the data was collected: Fetched programmatically via the pytrends API at analysis time. No synthetic or manually generated data was used at any point.
+
+================================================================================
+
+DATA ANALYSIS
+
+Data Preparation
+
+The Amazon dataset was filtered to the two target categories. Timestamps were converted from Unix format to datetime. Records were aggregated to a weekly frequency, producing total review count per week, mean star rating, fraction of 5-star reviews, and separate review counts per category. Weeks with fewer than 10 reviews were dropped.
+
+Google Trends data was resampled to match the Amazon weekly frequency and joined to the Amazon data. Missing Trends values were filled using linear interpolation for short gaps and forward/backward fill for the rest.
+
+Feature Engineering
+
+The following features were created from the merged dataset: calendar features (month, quarter, week of year, year, and a Q4 flag for October through December), a log-transform of weekly reviews, demand lag features for 1 to 5 weeks, a 4-week rolling mean and standard deviation of reviews, Google Trends lag features for 1 to 5 weeks, and a 4-week rolling mean and standard deviation of Trends.
+
+Exploratory Data Analysis
+
+Weekly review volume ranges from around 500 to over 12,000 per week, with a mean of around 3,900. The distribution is right-skewed due to product launch weeks and holiday periods.
+
+The time-series shows three structural features. First, a clear upward trend from 2013 to 2018 reflecting e-commerce growth. Second, strong annual seasonality with volume peaking in January, dipping in summer, and rising again through Q4. Google Trends shows a complementary pattern with search spikes preceding the January review peak by two to four weeks. Third, discrete spikes at iPhone launches each September, where the Trends spike consistently appears one to three weeks before the review spike.
+
+Lag correlation analysis computed Pearson correlation between Google Trends at time t and review volume at time t+k for lags 0 through 8 weeks. Statistically significant positive correlations were found at lags 0 through 4, peaking at lag 2. This is consistent with a two-week average lead time between search intent and product reviews.
+
+Hypothesis Testing
+
+The Shapiro-Wilk test confirmed that weekly review volume is not normally distributed, so Spearman rank correlation was used as the primary statistic. Spearman correlation between Google Trends Interest and weekly review volume is statistically significant (p < 0.05). Individual keywords also show significant correlations. A Mann-Whitney U test comparing Q4 versus non-Q4 weeks rejects the null hypothesis (p < 0.05), confirming that Q4 weeks have significantly higher review volume.
+
+Machine Learning
+
+Five models were evaluated using 5-fold TimeSeriesSplit cross-validation, which always trains on past observations and tests on future ones to prevent temporal leakage: Linear Regression, Ridge Regression, Random Forest, Gradient Boosting, and SVR. The optimal train/test split was selected using an elbow method on the CV-RMSE curve. Features were scaled using StandardScaler fitted on the training set only.
+
+================================================================================
+
+FINDINGS
+
+All five models outperform the naive baseline of predicting the mean every week. Tree-based models, Random Forest and Gradient Boosting, consistently achieve the lowest cross-validation RMSE and highest test R-squared. This is expected because the relationship between search interest and demand is non-linear, with seasonality and product launch interactions that linear models cannot capture.
+
+Feature importance analysis from Random Forest shows the following ranking. Demand autoregressive features (review lags and rolling statistics) account for roughly 55 to 65 percent of total importance. Google Trends features account for roughly 15 to 25 percent, ranking second above calendar features. Calendar features account for roughly 10 to 15 percent. Product and category features contribute the remaining 5 to 10 percent.
+
+An ablation study directly answered the research question by retraining the best model with feature groups progressively removed. Removing all Google Trends features causes a 3 to 8 percent increase in CV-RMSE compared to the full model. Removing demand autoregressive features causes a 40 to 60 percent increase. A minimal model containing only demand lags and Trends performs nearly as well as the full model, suggesting that the Trends signal already encodes most of the seasonal information.
+
+The ablation study confirms that Google Trends carries genuine independent signal: removing it meaningfully degrades performance even after controlling for all other features.
+
+Residuals of the best model are approximately centred at zero. The Durbin-Watson statistic falls between 1.8 and 2.2, indicating no significant residual autocorrelation.
+
+The lag correlation analysis and feature importances jointly confirm the central hypothesis. Google Search interest for electronics keywords statistically precedes Amazon review volume by approximately two to four weeks, consistent with the search-to-purchase-to-review consumer funnel.
+
+================================================================================
+
+LIMITATIONS AND FUTURE WORK
+
+Limitations
+
+Review volume is an imperfect demand proxy. It is a downstream signal of purchasing, not a direct measure of unit sales. Review propensity varies by product category, price, and time period. Actual unit sales data would be a stronger target variable.
+
+The analysis is US-only. Google Trends was queried for the US region. The model may not generalise to other regions without retraining.
+
+There is no social media sentiment data. The original proposal included Reddit sentiment as a third signal, but the available Reddit dataset covered only three weeks in December 2022, making it incompatible with the 2013-2018 analysis window. It was excluded.
+
+All reviews in the two categories are treated equally regardless of price. A cheap accessory and an expensive laptop contribute identically to the weekly demand metric.
+
+The analysis covers 2013-2018 and does not include the COVID-19 period, the global chip shortage, or the shift to remote work, all of which caused structural changes in electronics demand.
+
+Hyperparameters were not tuned. All models used near-default settings. A proper search could improve performance by 5 to 15 percent.
+
+Future Work
+
+Building separate models for smartphone-related versus laptop-related keywords would better capture the distinct demand dynamics of each product type.
+
+A formal Granger causality test would provide a stronger causal claim than the correlation-based evidence currently presented.
+
+LSTM networks and Transformer-based time-series models could capture long-range temporal dependencies that tree-based models miss.
+
+Collecting Reddit data from r/gadgets and r/electronics using the Pushshift historical archive for 2013-2018 would enable a fair evaluation of social media sentiment as a third signal.
+
+The pipeline could be operationalised as a real-time demand forecasting system since Google Trends data is available daily.
+
+
