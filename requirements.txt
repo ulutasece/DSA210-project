@@ -1,8 +1,9 @@
 pytrends
-praw
 pandas
 numpy
 matplotlib
 seaborn
 scipy
 statsmodels
+scikit-learn
+vaderSentiment
